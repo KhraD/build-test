@@ -1,0 +1,63 @@
+[gd_scene load_steps=11 format=3 uid="uid://c6u4rre1faw3n"]
+
+[ext_resource type="Script" path="res://character_body_2d.gd" id="1_ydr4r"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_obxc0"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_fyi0q"]
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_ddcb8"]
+width = 30
+height = 30
+noise = SubResource("FastNoiseLite_fyi0q")
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_v0xff"]
+friction = 0.01
+bounce = 0.01
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_76v55"]
+size = Vector2(997, 72)
+
+[sub_resource type="Curve" id="Curve_1c17s"]
+_data = [Vector2(0.351648, 0.142857), 0.0, 0.0, 0, 0, Vector2(0.527473, 0.384615), 0.0, 0.0, 0, 0, Vector2(0.906593, 0.197802), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Curve" id="Curve_c6fet"]
+_data = [Vector2(0.263736, 0.131868), 0.0, 0.0, 0, 0, Vector2(0.269231, 0.307692), 0.0, 0.0, 0, 0, Vector2(0.521978, 0.208791), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Curve" id="Curve_c36qy"]
+_data = [Vector2(0.313187, 0.428571), 0.0, 0.0, 0, 0]
+point_count = 1
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_jdo7t"]
+curve_x = SubResource("Curve_1c17s")
+curve_y = SubResource("Curve_c6fet")
+curve_z = SubResource("Curve_c36qy")
+
+[node name="root" type="Node2D"]
+
+[node name="CharacterBody2D" type="CharacterBody2D" parent="."]
+position = Vector2(233, 220)
+floor_stop_on_slope = false
+floor_constant_speed = true
+script = ExtResource("1_ydr4r")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CharacterBody2D"]
+shape = SubResource("CircleShape2D_obxc0")
+
+[node name="Sprite2D" type="Sprite2D" parent="CharacterBody2D"]
+texture = SubResource("NoiseTexture2D_ddcb8")
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+position = Vector2(263.769, 294.756)
+physics_material_override = SubResource("PhysicsMaterial_v0xff")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(341, 72)
+shape = SubResource("RectangleShape2D_76v55")
+
+[node name="Sprite2D" type="Sprite2D" parent="StaticBody2D"]
+position = Vector2(342, 71)
+scale = Vector2(3.89062, 73)
+texture = SubResource("CurveXYZTexture_jdo7t")
