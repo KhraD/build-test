@@ -61,3 +61,5 @@ shape = SubResource("RectangleShape2D_76v55")
 position = Vector2(342, 71)
 scale = Vector2(3.89062, 73)
 texture = SubResource("CurveXYZTexture_jdo7t")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
