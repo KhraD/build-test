@@ -1,2 +1,2 @@
 # build-test
-## made to test build and deploy via github actions
+## made to test build and deploy godot projects via github actions

@@ -1,0 +1,32 @@
+name: Manual Build and Push Docker Img
+on:
+ workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version of engine to build e.g. "3.4", "4.3"'     
+        required: true
+        type: string
+env:
+  IMAGE_NAME: godot-ci
+jobs:
+  build:
+    name: Build Image
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Login to GitHub Container Registry 
+        uses: docker/login-action@v1.14.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v2.9.0
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ghcr.io/khrad/godot-builder:${{ github.event.inputs.version }}
+          build-args: |
+            GODOT_VERSION=${{ github.event.inputs.version }}

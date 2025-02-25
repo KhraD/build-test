@@ -1,0 +1,15 @@
+name: "Export Release and Deploy Godot Project"
+on: 
+  workflow_dispatch:
+  push:
+    branches:
+      - 'release'
+
+env:
+  GODOT_VERSION: 4.4
+  EXPORT_NAME: build-test-debug
+  PROJECT_PATH: project
+
+jobs:
+    null:
+        name: Nil
