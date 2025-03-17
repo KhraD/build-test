@@ -1,6 +1,25 @@
-[gd_scene load_steps=11 format=3 uid="uid://c6u4rre1faw3n"]
+[gd_scene load_steps=17 format=3 uid="uid://c6u4rre1faw3n"]
 
-[ext_resource type="Script" path="res://character_body_2d.gd" id="1_ydr4r"]
+[ext_resource type="Script" uid="uid://7eiaf2bumewh" path="res://character_body_2d.gd" id="1_ydr4r"]
+[ext_resource type="Script" uid="uid://bmdtsy3s5a17g" path="res://DotNetSprite2d.cs" id="2_apusk"]
+[ext_resource type="Texture2D" uid="uid://c5qdvm2a874n5" path="res://icon.svg" id="3_vvh5c"]
+
+[sub_resource type="Curve" id="Curve_g1sm6"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0]
+point_count = 1
+
+[sub_resource type="Curve" id="Curve_ghull"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0]
+point_count = 1
+
+[sub_resource type="Curve" id="Curve_kg8iy"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0]
+point_count = 1
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_omrom"]
+curve_x = SubResource("Curve_g1sm6")
+curve_y = SubResource("Curve_ghull")
+curve_z = SubResource("Curve_kg8iy")
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_obxc0"]
 
@@ -37,6 +56,12 @@ curve_z = SubResource("Curve_c36qy")
 
 [node name="root" type="Node2D"]
 
+[node name="DotNetSprite2D" type="Sprite2D" parent="."]
+position = Vector2(952, 152)
+scale = Vector2(1, 236.5)
+texture = SubResource("CurveXYZTexture_omrom")
+script = ExtResource("2_apusk")
+
 [node name="CharacterBody2D" type="CharacterBody2D" parent="."]
 position = Vector2(233, 220)
 floor_stop_on_slope = false
@@ -62,4 +87,7 @@ position = Vector2(342, 71)
 scale = Vector2(3.89062, 73)
 texture = SubResource("CurveXYZTexture_jdo7t")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="GDExample" type="GDExample" parent="."]
+position = Vector2(451, 118)
+texture = ExtResource("3_vvh5c")
+centered = false

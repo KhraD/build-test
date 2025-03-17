@@ -13,8 +13,12 @@ config_version=5
 config/name="Build-Test"
 config/description="Project intended to test build and deploy from github actions	"
 run/main_scene="res://root.tscn"
-config/features=PackedStringArray("4.3", "GL Compatibility")
+config/features=PackedStringArray("4.4", "C#", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[dotnet]
+
+project/assembly_name="Build-Test"
 
 [input]
 
