@@ -8,7 +8,6 @@ on:
 env:
   GODOT_VERSION: 4.4
   EXPORT_NAME: build-test-debug
-  PROJECT_PATH: .
 
 jobs:
   pass-env:
@@ -17,6 +16,8 @@ jobs:
     steps:
       - id: set-output
         run: echo "godot-version=${GODOT_VERSION}" >> $GITHUB_OUTPUT
+      - id: preserve-home-root
+        run: echo "HOME=/root" >> $GITHUB_ENV
     outputs:
       godot-version: ${{ steps.set-output.outputs.godot-version }}
       
@@ -51,8 +52,8 @@ jobs:
         run: |
           mkdir -v -p build/windows
           EXPORT_DIR="$(readlink -f build)"
-          cd $PROJECT_PATH
-          godot --headless --verbose --export-debug "Windows Desktop" "$EXPORT_DIR/windows/$EXPORT_NAME.exe"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          godot --headless --verbose --export-debug "Windows Desktop" "$EXPORT_DIR/windows/${EXPORT_NAME}.exe"
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -88,8 +89,8 @@ jobs:
         run: |
           mkdir -v -p build/linux
           EXPORT_DIR="$(readlink -f build)"
-          cd $PROJECT_PATH
-          godot --headless --verbose --export-debug "Linux/X11" "$EXPORT_DIR/linux/$EXPORT_NAME.x86_64"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          godot --headless --verbose --export-debug "Linux" "$EXPORT_DIR/linux/${EXPORT_NAME}.x86_64"
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -125,22 +126,14 @@ jobs:
         run: |
           mkdir -v -p build/web
           EXPORT_DIR="$(readlink -f build)"
-          cd $PROJECT_PATH
-          godot --headless --verbose --export-debug "Web" "$EXPORT_DIR/web/index.html"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          godot --headless --verbose --export-debug "Web" "$EXPORT_DIR/web/${EXPORT_NAME}.zip"
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: web
           path: build/web
-      - name: Install rsync 📚
-        run: |
-          apt-get update && apt-get install -y rsync
-      - name: Deploy to GitHub Pages 🚀
-        uses: JamesIves/github-pages-deploy-action@releases/v4
-        with:
-          branch: gh-pages # The branch the action should deploy to.
-          folder: build/web # The folder the action should deploy.
-
+          
   export-mac:
     name: Mac Export
     runs-on: ubuntu-latest
@@ -170,13 +163,14 @@ jobs:
         run: |
           mkdir -v -p build/mac
           EXPORT_DIR="$(readlink -f build)"
-          cd $PROJECT_PATH
-          godot --headless --verbose --export-debug "macOS" "$EXPORT_DIR/mac/$EXPORT_NAME.zip"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          godot --headless --verbose --export-debug "macOS" "$EXPORT_DIR/mac/${EXPORT_NAME}.zip"
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: mac
           path: build/mac
+          
   export-android:
     name: Android Export
     runs-on: ubuntu-latest
@@ -206,8 +200,11 @@ jobs:
         run: |
           mkdir -v -p build/android
           EXPORT_DIR="$(readlink -f build)"
-          cd $PROJECT_PATH
-          godot --headless --verbose --export-debug "Android" "$EXPORT_DIR/android/$EXPORT_NAME.apk"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          sed 's@gradle_build/use_gradle_build=".*"@gradle_build/use_gradle_build=true@g' -i export_presets.cfg
+          sed 's@gradle_build/gradle_build_directory=".*"@gradle_build/gradle_build_directory="/opt/godot/gradle"@g' -i export_presets.cfg
+          sed 's@textures/vram_compression/import_etc2_astc=".*"@textures/vram_compression/import_etc2_astc=true@g' -i project.godot
+          godot --headless --verbose --export-debug "Android" "$EXPORT_DIR/android/${EXPORT_NAME}.aab"
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
