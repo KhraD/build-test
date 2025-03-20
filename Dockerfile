@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends\
     libudev-dev \
     libxi-dev \
     libxrandr-dev \
-	libwayland-dev \
+    libwayland-dev \
     yasm \ 
     mingw-w64 \
     && rm -rf /var/lib/apt/lists/*
@@ -76,6 +76,7 @@ RUN mkdir -p /opt/godot/base \
 
 # Download and set up Android SDK to export to Android.
 ENV ANDROID_SDK_ROOT="/usr/lib/android-sdk"
+ENV ANDROID_HOME="/usr/lib/android-sdk"
 
 RUN mkdir -p /tmp/cmdline-tools \
     && cd /tmp/cmdline-tools \
@@ -87,7 +88,8 @@ RUN mkdir -p /tmp/cmdline-tools \
 ENV PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
 
 RUN yes | sdkmanager --licenses \
-    && sdkmanager "platform-tools" "build-tools;33.0.2" "platforms;android-33" "cmdline-tools;latest" "cmake;3.22.1" "ndk;25.2.9519653"
+    && sdkmanager "build-tools;33.0.2" "platforms;android-33" "cmake;3.22.1" "ndk;25.2.9519653" \
+	&& sdkmanager --update
 
 # Add Android keystore and settings.
 RUN keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 \

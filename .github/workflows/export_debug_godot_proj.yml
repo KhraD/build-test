@@ -17,6 +17,8 @@ jobs:
     steps:
       - id: set-output
         run: echo "godot-version=${GODOT_VERSION}" >> $GITHUB_OUTPUT
+      - id: preserve-home-root
+        run: echo "HOME=/root" >> $GITHUB_ENV
     outputs:
       godot-version: ${{ steps.set-output.outputs.godot-version }}
       
@@ -89,7 +91,7 @@ jobs:
           mkdir -v -p build/linux
           EXPORT_DIR="$(readlink -f build)"
           cd $PROJECT_PATH
-          godot --headless --verbose --export-debug "Linux/X11" "$EXPORT_DIR/linux/$EXPORT_NAME.x86_64"
+          godot --headless --verbose --export-debug "Linux" "$EXPORT_DIR/linux/$EXPORT_NAME.x86_64"
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -132,15 +134,7 @@ jobs:
         with:
           name: web
           path: build/web
-      - name: Install rsync 📚
-        run: |
-          apt-get update && apt-get install -y rsync
-      - name: Deploy to GitHub Pages 🚀
-        uses: JamesIves/github-pages-deploy-action@releases/v4
-        with:
-          branch: gh-pages # The branch the action should deploy to.
-          folder: build/web # The folder the action should deploy.
-
+          
   export-mac:
     name: Mac Export
     runs-on: ubuntu-latest
@@ -177,6 +171,7 @@ jobs:
         with:
           name: mac
           path: build/mac
+          
   export-android:
     name: Android Export
     runs-on: ubuntu-latest
