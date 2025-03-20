@@ -1,0 +1,61 @@
+name: Godot Docker Builder Image
+on:
+ workflow_dispatch:
+    inputs:
+      godot-version:
+        description: 'Version of engine to build e.g. "3.4", "4.3"'     
+        required: true
+        type: string
+        default: '4.4'       
+      cmake-version:
+        description: 'Version of cmake used by android build e.g. "3.10.2.4988404"'     
+        required: true
+        type: string
+        default: '3.10.2.4988404'
+      ndk-version:
+        description: 'Version of ndk used by android build e.g. "23.2.8568313"'     
+        required: true
+        type: string
+        default: '23.2.8568313'
+      build-tools-version:
+        description: 'Version of build-tools used by android build e.g. "34.0.0"'     
+        required: true
+        type: string 
+        default: '34.0.0'
+      android-platform-version:
+        description: 'Version of android platform used by android build e.g. "34"'     
+        required: true
+        type: string 
+        default: '34'
+        
+env:
+  IMAGE_NAME: godot-ci
+jobs:
+  build:
+    name: Build Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Login to GitHub Container Registry 
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v6.9.0
+        with:
+          context: .
+          file: builder.Dockerfile
+          push: true
+          tags: ghcr.io/khrad/godot-builder:${{ github.event.inputs.godot-version }}
+          build-args: |
+            GODOT_VERSION=${{ github.event.inputs.godot-version }}
+            ANDROID_CMAKE_VERSION=${{ github.event.inputs.cmake-version }}
+            ANDROID_NDK_VERSION=${{ github.event.inputs.ndk-version }}
+            ANDROID_BUILD_TOOLS_VERSION=${{ github.event.inputs.build-tools-version }}
+            ANDROID_PLATFORM_VERSION=${{ github.event.inputs.android-platform-version }}
+            

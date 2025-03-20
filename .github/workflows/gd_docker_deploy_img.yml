@@ -1,0 +1,42 @@
+name: Godot Docker Deployer Image
+on:
+ workflow_dispatch:
+    inputs:
+      image-version:
+        description: 'Version of the image to build e.g. "3.4", "4.3"'     
+        required: true
+        type: string
+        default: '1.0.0'
+        
+env:
+  IMAGE_NAME: godot-cd
+jobs:
+  build:
+    name: Build Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Docker Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/khrad/godot-deployer
+          tags: |
+            type=semver,pattern={{version}},value=${{ github.event.inputs.image-version }}  
+      - name: Login to GitHub Container Registry 
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v6.9.0
+        with:
+          context: .
+          file: deployer.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
