@@ -12,8 +12,9 @@ config_version=5
 
 config/name="Build-Test"
 config/description="Project intended to test build and deploy from github actions	"
+config/version="0.0.0"
 run/main_scene="res://root.tscn"
-config/features=PackedStringArray("4.3", "GL Compatibility")
+config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [input]
@@ -47,3 +48,4 @@ ui_up={
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
