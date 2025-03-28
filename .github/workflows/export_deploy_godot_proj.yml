@@ -1,0 +1,123 @@
+name: "Export Deploy Godot Project"
+on: 
+  workflow_dispatch:
+  push:
+    branches:
+      - 'debug'
+      - 'release'
+
+env:
+  GODOT_VERSION: 4.4
+  
+jobs:
+  pass-var:
+    name: Pass Variables
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: true
+      - name: Execute Permission
+        run: chmod +x ./.github/initojson.sh        
+      - name: Pass Godot Version
+        id: pass-version
+        run: echo "godot-version=${GODOT_VERSION}" >> $GITHUB_OUTPUT
+      - name: Pass Project 
+        id: pass-project
+        run: |
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          echo "project=$(cat project.godot | ./.github/initojson.sh | tr -d '\t' | jq -r 'tojson')" >> $GITHUB_OUTPUT               
+      - name: Pass Exports  
+        id: pass-exports
+        run: |
+          cd $(find . -name "export_presets.cfg" | grep -v "godot.cpp" | xargs dirname)
+          echo "export=$(cat export_presets.cfg | ./.github/initojson.sh | tr -d '\t' | jq -r 'tojson')" >> $GITHUB_OUTPUT
+      - name: Pass Indexes  
+        id: pass-idxs
+        run: |
+          cd $(find . -name "export_presets.cfg" | grep -v "godot.cpp" | xargs dirname)
+          echo "mat_idxs=$(cat export_presets.cfg | ./.github/initojson.sh | tr -d '\t' | jq -r '.mat_idxs | tojson')" >> $GITHUB_OUTPUT
+      - name: Pass has Extension
+        id: pass-has-extension
+        run: |
+          extension_dir=$(find . -name "godot-cpp") || true;
+          has_extension=$([ -n "$extension_dir" ] && echo true) || true;
+          echo "has-extension=$has_extension" >> $GITHUB_OUTPUT
+    outputs: 
+      godot-version: ${{ steps.pass-version.outputs.godot-version }}
+      project: ${{ steps.pass-project.outputs.project }}
+      export: ${{ steps.pass-exports.outputs.export }}
+      mat_idxs: ${{ steps.pass-idxs.outputs.mat_idxs }}
+      has-extension: ${{ steps.pass-has-extension.outputs.has-extension }}      
+
+  export:
+    name: Export ${{ matrix.mat_idxs }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.pass-var.outputs.mat_idxs) }}
+    needs: [pass-var]
+#    if: ${{ contains(needs.pass-var.outputs.platforms, 'Windows') }}
+    container:
+      image: ghcr.io/khrad/godot-builder:${{ needs.pass-var.outputs.godot-version }}
+    env:
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: true 
+      - name: Setup
+        run: |
+          mkdir -v -p ~/.local/share/godot
+          mkdir -v -p ~/.config/
+          mv /root/.config/godot ~/.config/godot
+          mv /root/.local/share/godot/export_templates ~/.local/share/godot/export_templates
+          
+          export_platform = ${{ fromJson(needs.pass-var.outputs.export)[format('preset.{0}', matrix.mat_idxs)].platform }}
+          export_platform = $(echo $export_platform | awk '{print tolower($1)}')
+          echo "export_platform=$export_platform" >> $GITHUB_ENV
+          
+          export_binary_format = ${{ fromJson(needs.pass-var.outputs.export)[format('preset.{0}.options', matrix.mat_idxs)]["binary_format/architecture"] }}
+          echo "export_binary_format=$export_binary_format" >> $GITHUB_ENV
+          
+          export_name = ${{ fromJson(needs.pass-var.outputs.export)[format('preset.{0}', matrix.mat_idxs)].name }}
+          echo "export_name=$export_name" >> $GITHUB_ENV
+          
+          project_name = ${{ fromJson(needs.pass-var.outputs.project).application["config/name"]}}
+          project_version = ${{ fromJson(needs.pass-var.outputs.project).application["config/version"]}}
+          file_name = 
+          
+      - name: Set Dotnet
+        if: ${{ fromJson(needs.pass-var.outputs.project).dotnet != null }}
+        run: |
+          echo "2" | update-alternatives --config godot >> /dev/null
+      - name: Build GDExtensions
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        run: |
+          scons platform=${{ split(fromJson(needs.pass-var.outputs.export)[format('preset.{0}', matrix.mat_idxs)].platform, ' ')[0] }} \
+          arch=${{ fromJson(needs.pass-var.outputs.export)[format('preset.{0}.options', matrix.mat_idxs)]["binary_format/architecture"] }} \
+          target=template_debug verbose=yes \
+          use_llvm=yes \
+          debug_symbols=yes \
+          symbols_visibility=visible \
+          disable_exceptions=false \
+          lto=full \
+          use_mingw=yes \
+          mingw_prefix=/opt/llvm-mingw/current
+      - name: Export
+        run: |
+          mkdir -v -p build/${{ split(fromJson(needs.pass-var.outputs.export)[format('preset.{0}', matrix.mat_idxs)].platform, ' ')[0] }}
+          EXPORT_DIR="$(readlink -f build)"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          godot --headless --verbose \
+          --export-debug \
+          "${{ fromJson(needs.pass-var.outputs.export)[format('preset.{0}', matrix.mat_idxs)].name }}" \
+          "${EXPORT_DIR}/${{ split(fromJson(needs.pass-var.outputs.export)[format('preset.{0}', matrix.mat_idxs)].platform, ' ')[0] }}/${EXPORT_NAME}.exe"
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ split(fromJson(needs.pass-var.outputs.export)[format('preset.{0}', matrix.mat_idxs)].platform, ' ')[0] }}
+          path: build/${{ split(fromJson(needs.pass-var.outputs.export)[format('preset.{0}', matrix.mat_idxs)].platform, ' ')[0] }}
