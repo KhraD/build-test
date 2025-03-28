@@ -88,6 +88,5 @@ scale = Vector2(3.89062, 73)
 texture = SubResource("CurveXYZTexture_jdo7t")
 
 [node name="GDExample" type="GDExample" parent="."]
-position = Vector2(451, 118)
+position = Vector2(166, 122)
 texture = ExtResource("3_vvh5c")
-centered = false
