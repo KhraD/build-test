@@ -1,0 +1,304 @@
+name: "Export Debug Godot Project"
+on: 
+  workflow_dispatch:
+  push:
+    branches:
+      - 'debug'
+
+env:
+  GODOT_VERSION: 4.4
+  EXPORT_NAME: build-test-debug
+
+jobs:
+  pass-var:
+    name: Pass Variables
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: true
+      - name: Pass Godot Version
+        id: pass-version
+        run: echo "godot-version=${GODOT_VERSION}" >> $GITHUB_OUTPUT
+      - name: Pass Platforms
+        id: pass-platforms
+        run: |
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          platforms=$(grep "platform=" export_presets.cfg | sed -zr 's@(platform="| )@.@g;s@"\n@@g')
+          echo "platforms=$platforms" >> $GITHUB_OUTPUT
+      - name: Pass is Dotnet
+        id: pass-is-dotnet
+        run: |
+          is_dotnet=$(find . -name "project.godot" | grep -v "godot-cpp" | xargs cat | grep "dotnet") || true;
+          is_dotnet=$([ -n "$is_dotnet" ] && echo true) || true;
+          echo "is-dotnet=$is_dotnet" >> $GITHUB_OUTPUT
+      - name: Pass has Extension
+        id: pass-has-extension
+        run: |
+          has_extension=$(find . -name "godot-cpp") || true;
+          has_extension=$([ -n "$has_extension" ] && echo true) || true;
+          echo "has-extension=$has_extension" >> $GITHUB_OUTPUT
+    outputs:
+      godot-version: ${{ steps.pass-version.outputs.godot-version }}
+      platforms: ${{ steps.pass-platforms.outputs.platforms }}
+      is-dotnet: ${{ steps.pass-is-dotnet.outputs.is-dotnet }}
+      has-extension: ${{ steps.pass-has-extension.outputs.has-extension }}
+
+  export-windows:
+    name: Windows Export
+    runs-on: ubuntu-latest
+    needs: [pass-var]
+    if: ${{ contains(needs.pass-var.outputs.platforms, 'Windows') }}
+    container:
+      image: ghcr.io/khrad/godot-builder:${{ needs.pass-var.outputs.godot-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: true 
+      - name: Setup
+        run: |
+          mkdir -v -p ~/.local/share/godot
+          mkdir -v -p ~/.config/
+          mv /root/.config/godot ~/.config/godot
+          mv /root/.local/share/godot/export_templates ~/.local/share/godot/export_templates
+      - name: Set Dotnet
+        if: ${{ needs.pass-var.outputs.is-dotnet == 'true' }}
+        run: |
+          echo "2" | update-alternatives --config godot >> /dev/null
+      - name: Restore Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-restore
+        continue-on-error: true   
+      - name: Build GDExtensions
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        run: |
+          scons platform=windows target=template_debug verbose=yes use_mingw=yes use_llvm=yes debug_symbols=yes symbols_visibility=visible disable_exceptions=false lto=full mingw_prefix=/opt/llvm-mingw/current
+      - name: Save Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-save
+        continue-on-error: true
+      - name: Windows Build
+        run: |
+          mkdir -v -p build/windows
+          EXPORT_DIR="$(readlink -f build)"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          godot --headless --verbose --export-debug "Windows Desktop" "$EXPORT_DIR/windows/${EXPORT_NAME}.exe"
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: build/windows
+
+  export-linux:
+    name: Linux Export
+    runs-on: ubuntu-latest
+    needs: [pass-var]
+    if: ${{ contains(needs.pass-var.outputs.platforms, 'Linux') }}
+    container:
+      image: ghcr.io/khrad/godot-builder:${{ needs.pass-var.outputs.godot-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: true 
+      - name: Setup
+        run: |
+          mkdir -v -p ~/.local/share/godot
+          mkdir -v -p ~/.config/
+          mv /root/.config/godot ~/.config/godot
+          mv /root/.local/share/godot/export_templates ~/.local/share/godot/export_templates
+      - name: Set Dotnet
+        if: ${{ needs.pass-var.outputs.is-dotnet == 'true' }}
+        run: |
+          echo "2" | update-alternatives --config godot >> /dev/null
+      - name: Restore Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-restore
+        continue-on-error: true   
+      - name: Build GDExtensions
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        run: |
+          scons platform=linux target=template_debug verbose=yes use_llvm=yes debug_symbols=yes symbols_visibility=visible disable_exceptions=false lto=full
+      - name: Save Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-save
+        continue-on-error: true
+      - name: Linux Build
+        run: |
+          mkdir -v -p build/linux
+          EXPORT_DIR="$(readlink -f build)"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          godot --headless --verbose --export-debug "Linux" "$EXPORT_DIR/linux/${EXPORT_NAME}.x86_64"
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: build/linux
+
+  export-web:
+    name: Web Export
+    runs-on: ubuntu-latest
+    needs: [pass-var]
+    if: ${{ contains(needs.pass-var.outputs.platforms, 'Web') && needs.pass-var.outputs.is-dotnet != 'true' }}
+    container:
+      image: ghcr.io/khrad/godot-builder:${{needs.pass-var.outputs.godot-version}}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: true 
+      - name: Setup
+        run: |
+          mkdir -v -p ~/.local/share/godot
+          mkdir -v -p ~/.config/
+          mv /root/.config/godot ~/.config/godot
+          mv /root/.local/share/godot/export_templates ~/.local/share/godot/export_templates
+      - name: Set Dotnet
+        if: ${{ needs.pass-var.outputs.is-dotnet == 'true' }}
+        run: |
+          echo "2" | update-alternatives --config godot >> /dev/null
+      - name: Restore Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-restore
+        continue-on-error: true   
+      - name: Build GDExtensions
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        run: |
+          scons platform=web target=template_debug verbose=yes debug_symbols=yes symbols_visibility=visible disable_exceptions=false lto=full
+      - name: Save Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-save
+        continue-on-error: true
+      - name: Web Build
+        run: |
+          mkdir -v -p build/web
+          EXPORT_DIR="$(readlink -f build)"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          godot --headless --verbose --export-debug "Web" "$EXPORT_DIR/web/${EXPORT_NAME}.html"
+      - name: Upload Artifact
+        if: ${{ steps.setup.outputs.skip_web_build == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: build/web
+          
+  export-mac:
+    name: Mac Export
+    runs-on: ubuntu-latest
+    needs: [pass-var]
+#    if: ${{ contains(needs.pass-var.outputs.platforms, 'macOS') }}
+    if: false #currently disabled 
+    container:
+      image: ghcr.io/khrad/godot-builder:${{ needs.pass-var.outputs.godot-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: true 
+      - name: Setup
+        run: |
+          mkdir -v -p ~/.local/share/godot
+          mkdir -v -p ~/.config/
+          mv /root/.config/godot ~/.config/godot
+          mv /root/.local/share/godot/export_templates ~/.local/share/godot/export_templates
+      - name: Set Dotnet
+        if: ${{ needs.pass-var.outputs.is-dotnet == 'true' }}
+        run: |
+          echo "2" | update-alternatives --config godot >> /dev/null
+      - name: Restore Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-restore
+        continue-on-error: true   
+      - name: Build GDExtensions
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        run: |
+          scons platform=macos target=template_debug
+      - name: Save Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-save
+        continue-on-error: true
+      - name: Mac Build
+        run: |
+          mkdir -v -p build/mac
+          EXPORT_DIR="$(readlink -f build)"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          
+          hasEtcConfig=$(cat project.godot | { grep "import_etc2_astc" || true; })
+          if [ -n "$hasEtcConfig" ]; then
+              sed 's@textures/vram_compression/import_etc2_astc=".*"@textures/vram_compression/import_etc2_astc=true@g' -i project.godot
+          else
+              sed 's@\[rendering\]@\[rendering\]\ntextures/vram_compression/import_etc2_astc=true@g' -i project.godot
+          fi
+          
+          godot --headless --verbose --export-debug "macOS" "$EXPORT_DIR/mac/${EXPORT_NAME}.zip"
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: build/mac
+          
+  export-android:
+    name: Android Export
+    runs-on: ubuntu-latest
+    needs: [pass-var]
+    if: ${{ contains(needs.pass-var.outputs.platforms, 'Android') }}
+    container:
+      image: ghcr.io/khrad/godot-builder:${{ needs.pass-var.outputs.godot-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: true 
+      - name: Setup
+        run: |
+          mkdir -v -p ~/.local/share/godot
+          mkdir -v -p ~/.config/
+          mv /root/.config/godot ~/.config/godot
+          mv /root/.local/share/godot/export_templates ~/.local/share/godot/export_templates
+      - name: Set Dotnet
+        if: ${{ needs.pass-var.outputs.is-dotnet == 'true' }}
+        run: |
+          echo "2" | update-alternatives --config godot >> /dev/null
+          ln -nsf /opt/godot/mono/gradle /opt/godot/gradle
+      - name: Restore Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-restore
+        continue-on-error: true   
+      - name: Build GDExtensions
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        run: |
+          scons platform=android target=template_debug verbose=yes debug_symbols=yes symbols_visibility=visible disable_exceptions=false lto=full
+      - name: Save Godot build cache
+        if: ${{ needs.pass-var.outputs.has-extension == 'true' }}
+        uses: ./godot-cpp/.github/actions/godot-cache-save
+        continue-on-error: true
+      - name: Android Build
+        run: |
+          mkdir -v -p build/android
+          EXPORT_DIR="$(readlink -f build)"
+          cd $(find . -name "project.godot" | grep -v "godot.cpp" | xargs dirname)
+          sed 's@gradle_build/use_gradle_build=.*@gradle_build/use_gradle_build=true@g' -i export_presets.cfg
+          sed 's@gradle_build/gradle_build_directory=.*@gradle_build/gradle_build_directory="/opt/godot/gradle"@g' -i export_presets.cfg
+          sed 's@gradle_build/export_format=.*@gradle_build/export_format=1@g' -i export_presets.cfg
+          
+          hasEtcConfig=$(cat project.godot | { grep "import_etc2_astc" || true; })
+          if [ -n "$hasEtcConfig" ]; then
+              sed 's@textures/vram_compression/import_etc2_astc=".*"@textures/vram_compression/import_etc2_astc=true@g' -i project.godot
+          else
+              sed 's@\[rendering\]@\[rendering\]\ntextures/vram_compression/import_etc2_astc=true@g' -i project.godot
+          fi
+          
+          godot --headless --verbose --export-debug "Android" "$EXPORT_DIR/android/${EXPORT_NAME}.aab"
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: build/android
